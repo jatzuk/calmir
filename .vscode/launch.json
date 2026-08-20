@@ -1,0 +1,24 @@
+{
+  "configurations": [
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:calmir}",
+      "name": "Debug calmir",
+      "target": "calmir",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug calmir"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:calmir}",
+      "name": "Release calmir",
+      "target": "calmir",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release calmir"
+    }
+  ]
+}
