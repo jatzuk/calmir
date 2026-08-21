@@ -14,37 +14,37 @@ struct CalendarEvent {
   let startDate: Date
   let endDate: Date
   let isAllDay: Bool
-  let syncMetadata: EventSyncMetadata?
+  let syncMetadata: SyncMetadata?
 
-  var identity: CalendarEventIdentity {
-    return CalendarEventIdentity(eventID: id, occurrenceDate: occurrenceDate)
-  }
-}
-
-struct CalendarEventIdentity: Hashable {
-  let eventID: String
-  let occurrenceDate: Date?
-}
-
-struct EventSyncMetadata: Equatable {
-  let sourceCalendarID: String
-  let sourceEventID: String
-  let sourceOccurrenceDate: Date?
-
-  init(
-    sourceCalendarID: String,
-    sourceEventID: String,
-    sourceOccurrenceDate: Date? = nil
-  ) {
-    self.sourceCalendarID = sourceCalendarID
-    self.sourceEventID = sourceEventID
-    self.sourceOccurrenceDate = sourceOccurrenceDate
+  var identity: Identity {
+    return Identity(id: id, occurrenceDate: occurrenceDate)
   }
 
-  var sourceIdentity: CalendarEventIdentity {
-    return CalendarEventIdentity(
-      eventID: sourceEventID,
-      occurrenceDate: sourceOccurrenceDate
-    )
+  struct Identity: Hashable {
+    let id: String
+    let occurrenceDate: Date?
+  }
+
+  struct SyncMetadata: Equatable {
+    let sourceCalendarId: String
+    let sourceEventId: String
+    let sourceOccurrenceDate: Date?
+
+    init(
+      sourceCalendarId: String,
+      sourceEventId: String,
+      sourceOccurrenceDate: Date? = nil
+    ) {
+      self.sourceCalendarId = sourceCalendarId
+      self.sourceEventId = sourceEventId
+      self.sourceOccurrenceDate = sourceOccurrenceDate
+    }
+
+    var sourceIdentity: CalendarEvent.Identity {
+      return CalendarEvent.Identity(
+        id: sourceEventId,
+        occurrenceDate: sourceOccurrenceDate
+      )
+    }
   }
 }

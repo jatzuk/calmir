@@ -1,14 +1,14 @@
 import Foundation
 import ArgumentParser
 
-struct ListCommand : AsyncParsableCommand { 
+struct ListCommand : AsyncParsableCommand {
   static let configuration = CommandConfiguration(
     commandName: "list",
     abstract: "List all available calendars"
   )
 
   func run() async throws {
-    let service =  CalendarService()
+    let service =  CalendarServiceImpl()
     try await service.requestAccess()
 
     let calendars = service.calendars()
@@ -19,7 +19,7 @@ struct ListCommand : AsyncParsableCommand {
 
     print("Available calendars:")
     for info in calendars {
-      print(" - \(info.title); \(info.source) (\(info.sourceType)); id: \(info.id)")
+      print(" - \(info.title); \(info.source) (\(info.sourceType))")
     }
     print()
   }

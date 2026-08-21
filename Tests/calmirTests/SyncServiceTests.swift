@@ -20,10 +20,10 @@ func rejectsSyncingACalendarIntoItselfBeforeFetchingEvents() async {
     Issue.record("Expected a validation error, got \(error)")
   }
 
-  #expect(calendarService.fetchedCalendarIDs.isEmpty)
+  #expect(calendarService.fetchedCalendarIds.isEmpty)
   #expect(calendarService.created.isEmpty)
   #expect(calendarService.updated.isEmpty)
-  #expect(calendarService.deletedIDs.isEmpty)
+  #expect(calendarService.deletedIds.isEmpty)
 }
 
 @Test
@@ -43,25 +43,25 @@ func doesNotAdoptUntaggedDestinationEventWithTheSameTitle() async throws {
   #expect(calendarService.created.map(\.source) == ["source-id"])
   #expect(calendarService.created.map(\.destination) == ["destination-id"])
   #expect(calendarService.updated.isEmpty)
-  #expect(calendarService.deletedIDs.isEmpty)
+  #expect(calendarService.deletedIds.isEmpty)
   #expect(result.createdEvents.map(\.id) == ["source-1"])
 }
 
 @Test
-func matchesRepeatedTitlesBySourceEventID() async throws {
+func matchesRepeatedTitlesBySourceEventId() async throws {
   let firstSource = makeEvent(id: "source-1", title: "Focus", startMinute: 10)
   let secondSource = makeEvent(id: "source-2", title: "Focus", startMinute: 20)
   let firstDestination = makeEvent(
     id: "destination-1",
     title: "Focus",
     startMinute: 10,
-    syncMetadata: metadata(eventID: "source-1")
+    syncMetadata: metadata(eventId: "source-1")
   )
   let secondDestination = makeEvent(
     id: "destination-2",
     title: "Focus",
     startMinute: 20,
-    syncMetadata: metadata(eventID: "source-2")
+    syncMetadata: metadata(eventId: "source-2")
   )
   let calendarService = FakeCalendarEventService(events: [
     "Source": [firstSource, secondSource],
@@ -74,7 +74,7 @@ func matchesRepeatedTitlesBySourceEventID() async throws {
 
   #expect(calendarService.created.isEmpty)
   #expect(calendarService.updated.isEmpty)
-  #expect(calendarService.deletedIDs.isEmpty)
+  #expect(calendarService.deletedIds.isEmpty)
   #expect(result.eventCount == 0)
 }
 
@@ -90,13 +90,13 @@ func matchesRecurringOccurrencesByOccurrenceDate() async throws {
     id: "destination-1",
     title: "Daily focus",
     startMinute: 10,
-    syncMetadata: metadata(eventID: "series-1", occurrenceMinute: 10)
+    syncMetadata: metadata(eventId: "series-1", occurrenceMinute: 10)
   )
   let secondDestination = makeEvent(
     id: "destination-2",
     title: "Daily focus",
     startMinute: 20,
-    syncMetadata: metadata(eventID: "series-1", occurrenceMinute: 20)
+    syncMetadata: metadata(eventId: "series-1", occurrenceMinute: 20)
   )
   let calendarService = FakeCalendarEventService(events: [
     "Source": [firstSource, secondSource],
@@ -109,7 +109,7 @@ func matchesRecurringOccurrencesByOccurrenceDate() async throws {
 
   #expect(calendarService.created.isEmpty)
   #expect(calendarService.updated.isEmpty)
-  #expect(calendarService.deletedIDs.isEmpty)
+  #expect(calendarService.deletedIds.isEmpty)
   #expect(result.eventCount == 0)
 }
 
@@ -120,13 +120,13 @@ func deletesOnlyTheMissingRepeatedTitleOccurrence() async throws {
     id: "destination-1",
     title: "Focus",
     startMinute: 10,
-    syncMetadata: metadata(eventID: "source-1")
+    syncMetadata: metadata(eventId: "source-1")
   )
   let removedDestination = makeEvent(
     id: "destination-2",
     title: "Focus",
     startMinute: 20,
-    syncMetadata: metadata(eventID: "source-2")
+    syncMetadata: metadata(eventId: "source-2")
   )
   let calendarService = FakeCalendarEventService(events: [
     "Source": [remainingSource],
@@ -137,7 +137,7 @@ func deletesOnlyTheMissingRepeatedTitleOccurrence() async throws {
     from: "Source", to: "Destination", within: testInterval
   )
 
-  #expect(calendarService.deletedIDs == ["destination-2"])
+  #expect(calendarService.deletedIds == ["destination-2"])
   #expect(result.deletedEvents.map(\.id) == ["destination-2"])
 }
 
@@ -150,13 +150,13 @@ func deletesOnlyTheMissingRecurringOccurrence() async throws {
     id: "destination-1",
     title: "Daily focus",
     startMinute: 10,
-    syncMetadata: metadata(eventID: "series-1", occurrenceMinute: 10)
+    syncMetadata: metadata(eventId: "series-1", occurrenceMinute: 10)
   )
   let removedDestination = makeEvent(
     id: "destination-2",
     title: "Daily focus",
     startMinute: 20,
-    syncMetadata: metadata(eventID: "series-1", occurrenceMinute: 20)
+    syncMetadata: metadata(eventId: "series-1", occurrenceMinute: 20)
   )
   let calendarService = FakeCalendarEventService(events: [
     "Source": [remainingSource],
@@ -167,7 +167,7 @@ func deletesOnlyTheMissingRecurringOccurrence() async throws {
     from: "Source", to: "Destination", within: testInterval
   )
 
-  #expect(calendarService.deletedIDs == ["destination-2"])
+  #expect(calendarService.deletedIds == ["destination-2"])
   #expect(result.deletedEvents.map(\.id) == ["destination-2"])
 }
 
@@ -178,7 +178,7 @@ func updatesTheTitleOfAnIdentifiedEvent() async throws {
     id: "destination-1",
     title: "Old title",
     startMinute: 10,
-    syncMetadata: metadata(eventID: "source-1")
+    syncMetadata: metadata(eventId: "source-1")
   )
   let calendarService = FakeCalendarEventService(events: [
     "Source": [sourceEvent],
@@ -189,16 +189,16 @@ func updatesTheTitleOfAnIdentifiedEvent() async throws {
     from: "Source", to: "Destination", within: testInterval
   )
 
-  #expect(calendarService.updated.map(\.destinationID) == ["destination-1"])
+  #expect(calendarService.updated.map(\.destinationId) == ["destination-1"])
   #expect(calendarService.updated.map(\.event.title) == ["New title"])
   #expect(result.updatedEvents.map(\.id) == ["source-1"])
 }
 
 @Test
 func syncMetadataTagRoundTripsArbitraryIdentifiers() {
-  let metadata = EventSyncMetadata(
-    sourceCalendarID: "Work: EMEA [shared] 🌍",
-    sourceEventID: "event/123:=[]",
+  let metadata = CalendarEvent.SyncMetadata(
+    sourceCalendarId: "Work: EMEA [shared] 🌍",
+    sourceEventId: "event/123:=[]",
     sourceOccurrenceDate: testInterval.start.addingTimeInterval(10 * 60)
   )
   let codec = EventSyncMetadataCodec()
@@ -208,13 +208,13 @@ func syncMetadataTagRoundTripsArbitraryIdentifiers() {
 
 @Test
 func syncMetadataCodecDecodesLegacyNonRecurringTag() {
-  let calendarID = Data("source-id".utf8).base64EncodedString()
-  let eventID = Data("event-id".utf8).base64EncodedString()
-  let legacyTag = "[calmir-sync:v1:\(calendarID):\(eventID)]"
+  let calendarId = Data("source-id".utf8).base64EncodedString()
+  let eventId = Data("event-id".utf8).base64EncodedString()
+  let legacyTag = "[calmir-sync:v1:\(calendarId):\(eventId)]"
 
   #expect(
     EventSyncMetadataCodec().decode(from: legacyTag)
-      == EventSyncMetadata(sourceCalendarID: "source-id", sourceEventID: "event-id")
+      == CalendarEvent.SyncMetadata(sourceCalendarId: "source-id", sourceEventId: "event-id")
   )
 }
 
@@ -253,10 +253,10 @@ private let testInterval = DateInterval(
   duration: 60 * 60
 )
 
-private func metadata(eventID: String, occurrenceMinute: Int? = nil) -> EventSyncMetadata {
-  return EventSyncMetadata(
-    sourceCalendarID: "source-id",
-    sourceEventID: eventID,
+private func metadata(eventId: String, occurrenceMinute: Int? = nil) -> CalendarEvent.SyncMetadata {
+  return CalendarEvent.SyncMetadata(
+    sourceCalendarId: "source-id",
+    sourceEventId: eventId,
     sourceOccurrenceDate: occurrenceMinute.map {
       testInterval.start.addingTimeInterval(TimeInterval($0 * 60))
     }
@@ -272,7 +272,7 @@ private func makeEvent(
   title: String,
   startMinute: Int,
   occurrenceMinute: Int? = nil,
-  syncMetadata: EventSyncMetadata? = nil
+  syncMetadata: CalendarEvent.SyncMetadata? = nil
 ) -> CalendarEvent {
   let start = testInterval.start.addingTimeInterval(TimeInterval(startMinute * 60))
   return CalendarEvent(
@@ -288,7 +288,7 @@ private func makeEvent(
   )
 }
 
-private final class FakeCalendarEventService: CalendarEventService {
+private final class FakeCalendarEventService: CalendarService {
   struct Creation {
     let event: CalendarEvent
     let destination: String
@@ -296,7 +296,7 @@ private final class FakeCalendarEventService: CalendarEventService {
   }
 
   struct Update {
-    let destinationID: String
+    let destinationId: String
     let event: CalendarEvent
     let source: String
   }
@@ -305,18 +305,18 @@ private final class FakeCalendarEventService: CalendarEventService {
   private let calendars: [CalendarInfo]
   private(set) var created = [Creation]()
   private(set) var updated = [Update]()
-  private(set) var deletedIDs = [String]()
-  private(set) var fetchedCalendarIDs = [String]()
+  private(set) var deletedIds = [String]()
+  private(set) var fetchedCalendarIds = [String]()
 
   init(events: [String: [CalendarEvent]]) {
-    var eventsByID = [String: [CalendarEvent]]()
+    var eventsById = [String: [CalendarEvent]]()
     var calendars = [CalendarInfo]()
     for (title, calendarEvents) in events {
       let id = "\(title.lowercased())-id"
-      eventsByID[id] = calendarEvents
+      eventsById[id] = calendarEvents
       calendars.append(CalendarInfo(id: id, title: title, source: "Test", sourceType: "Local"))
     }
-    self.events = eventsByID
+    self.events = eventsById
     self.calendars = calendars
   }
 
@@ -327,30 +327,30 @@ private final class FakeCalendarEventService: CalendarEventService {
     return try #require(calendars.first(where: { $0.title == reference }))
   }
 
-  func fetchEvents(from calendarID: String, within interval: DateInterval) async throws
+  func fetchEvents(from calendarId: String, within interval: DateInterval) async throws
     -> [CalendarEvent]
   {
-    fetchedCalendarIDs.append(calendarID)
-    return events[calendarID, default: []]
+    fetchedCalendarIds.append(calendarId)
+    return events[calendarId, default: []]
   }
 
   func createEvent(
     _ event: CalendarEvent,
-    in calendarID: String,
-    from sourceID: String
+    in calendarId: String,
+    from sourceId: String
   ) async throws {
-    created.append(Creation(event: event, destination: calendarID, source: sourceID))
+    created.append(Creation(event: event, destination: calendarId, source: sourceId))
   }
 
   func updateEvent(
     id identifier: String,
     with event: CalendarEvent,
-    from sourceID: String
+    from sourceId: String
   ) async throws {
-    updated.append(Update(destinationID: identifier, event: event, source: sourceID))
+    updated.append(Update(destinationId: identifier, event: event, source: sourceId))
   }
 
   func deleteEvent(id identifier: String) async throws {
-    deletedIDs.append(identifier)
+    deletedIds.append(identifier)
   }
 }

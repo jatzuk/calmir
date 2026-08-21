@@ -39,7 +39,7 @@ struct SyncCommand: AsyncParsableCommand {
 
   func run() async throws {
     let window = try weekOnly ? currentWeek() : upcoming(days: days)
-    let calendarService = CalendarService()
+    let calendarService = CalendarServiceImpl()
     try await calendarService.requestAccess()
 
     let syncService = SyncService(calendarService: calendarService)
@@ -94,16 +94,18 @@ struct SyncCommand: AsyncParsableCommand {
       throw ValidationError("--days must be greater than zero")
     }
 
-    let start = Date()
-    guard let end = Calendar.current.date(byAdding: .day, value: days, to: start) else {
+    let calendar = Calendar.current
+    let start = calendar.startOfDay(for: Date())
+    guard let end = calendar.date(byAdding: .day, value: days, to: start) else {
       throw CalendarService.Error.validationError(
         "Couldn't build a \(days)-day interval from \(start)"
       )
     }
 
+    let lastInstant = end.addingTimeInterval(-1)
     return SyncWindow(
       interval: DateInterval(start: start, end: end),
-      label: "for the next \(days) days: (\(range(start, end)))")
+      label: "for \(days) day\(days == 1 ? "" : "s"): (\(range(start, lastInstant)))")
   }
 
   private func currentWeek() throws -> SyncWindow {

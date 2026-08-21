@@ -1,22 +1,9 @@
 import Foundation
 
-protocol CalendarEventService {
-  func resolveCalendar(_ reference: String) throws -> CalendarInfo
-  func fetchEvents(from calendarID: String, within interval: DateInterval) async throws
-    -> [CalendarEvent]
-  func createEvent(
-    _ event: CalendarEvent, in calendarID: String, from sourceID: String
-  ) async throws
-  func updateEvent(
-    id identifier: String, with event: CalendarEvent, from sourceID: String
-  ) async throws
-  func deleteEvent(id identifier: String) async throws
-}
-
 final class SyncService {
-  private let calendarService: any CalendarEventService
+  private let calendarService: any CalendarService
 
-  init(calendarService: any CalendarEventService) {
+  init(calendarService: any CalendarService) {
     self.calendarService = calendarService
   }
 
@@ -41,10 +28,10 @@ final class SyncService {
     )
 
     let managedDestinationEvents = destinationEvents.filter {
-      $0.syncMetadata?.sourceCalendarID == sourceCalendar.id
+      $0.syncMetadata?.sourceCalendarId == sourceCalendar.id
     }
 
-    var lookup = [CalendarEventIdentity: CalendarEvent]()
+    var lookup = [CalendarEvent.Identity: CalendarEvent]()
     for event in managedDestinationEvents {
       guard let metadata = event.syncMetadata else { continue }
       lookup[metadata.sourceIdentity] = event
@@ -96,9 +83,9 @@ final class SyncService {
   }
 
   private func datesEqual(_ lhs: Date, _ rhs: Date) -> Bool {
-    let l60 = (lhs.timeIntervalSinceReferenceDate / 60).rounded(.towardZero)
-    let r60 = (rhs.timeIntervalSinceReferenceDate / 60).rounded(.towardZero)
-    return l60 == r60
+    let left = (lhs.timeIntervalSinceReferenceDate / 60).rounded(.towardZero)
+    let right = (rhs.timeIntervalSinceReferenceDate / 60).rounded(.towardZero)
+    return left == right
   }
 
   struct Result {

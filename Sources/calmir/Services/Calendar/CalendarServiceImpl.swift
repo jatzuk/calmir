@@ -1,9 +1,10 @@
 import EventKit
 import Foundation
 
-final class CalendarService: CalendarEventService {
+final class CalendarServiceImpl: CalendarService {
   private let eventStore = EKEventStore()
   private let syncMetadataCodec = EventSyncMetadataCodec()
+
 
   func requestAccess() async throws {
     let hasPermission = try await eventStore.requestFullAccessToEvents()
@@ -28,16 +29,15 @@ final class CalendarService: CalendarEventService {
   }
 
   func fetchEvents(
-    from calendarID: String,
+    from calendarId: String,
     within interval: DateInterval
   ) async throws -> [CalendarEvent] {
     guard
-      let calendar = eventStore.calendars(for: .event).first(where: {
-        $0.calendarIdentifier == calendarID
-      })
+      let calendar = eventStore.calendars(for: .event)
+        .first(where: { $0.calendarIdentifier == calendarId })
     else {
       throw CalendarService.Error.calendarNotFound(
-        "No calendar found with identifier \(calendarID)"
+        "No calendar found with identifier \(calendarId)"
       )
     }
 
@@ -62,11 +62,11 @@ final class CalendarService: CalendarEventService {
 
   func createEvent(
     _ event: CalendarEvent,
-    in calendarID: String,
-    from sourceID: String
+    in calendarId: String,
+    from sourceId: String
   ) async throws {
-    guard let calendar = findCalendar(id: calendarID) else {
-      throw Error.calendarNotFound(calendarID)
+    guard let calendar = findCalendar(id: calendarId) else {
+      throw CalendarService.Error.calendarNotFound(calendarId)
     }
 
     let ekEvent = EKEvent(eventStore: eventStore)
@@ -75,9 +75,9 @@ final class CalendarService: CalendarEventService {
     ekEvent.endDate = event.endDate
     ekEvent.isAllDay = event.isAllDay
     ekEvent.notes = syncMetadataCodec.encode(
-      EventSyncMetadata(
-        sourceCalendarID: sourceID,
-        sourceEventID: event.id,
+      CalendarEvent.SyncMetadata(
+        sourceCalendarId: sourceId,
+        sourceEventId: event.id,
         sourceOccurrenceDate: event.occurrenceDate
       )
     )
@@ -86,26 +86,26 @@ final class CalendarService: CalendarEventService {
     do {
       try eventStore.save(ekEvent, span: .thisEvent)
     } catch {
-      throw Error.eventCreationFailed(error.localizedDescription)
+      throw CalendarService.Error.eventCreateFailed(error.localizedDescription)
     }
   }
 
   func updateEvent(
     id identifier: String,
     with event: CalendarEvent,
-    from sourceID: String
+    from sourceId: String
   ) async throws {
     guard let ekEvent = eventStore.event(withIdentifier: identifier) else {
-      throw Error.eventUpdateFailed("Event not found for identifier: \(identifier)")
+      throw CalendarService.Error.eventUpdateFailed("Event not found for identifier: \(identifier)")
     }
     ekEvent.title = event.title
     ekEvent.startDate = event.startDate
     ekEvent.endDate = event.endDate
     ekEvent.isAllDay = event.isAllDay
     ekEvent.notes = syncMetadataCodec.encode(
-      EventSyncMetadata(
-        sourceCalendarID: sourceID,
-        sourceEventID: event.id,
+      CalendarEvent.SyncMetadata(
+        sourceCalendarId: sourceId,
+        sourceEventId: event.id,
         sourceOccurrenceDate: event.occurrenceDate
       )
     )
@@ -113,18 +113,18 @@ final class CalendarService: CalendarEventService {
     do {
       try eventStore.save(ekEvent, span: .thisEvent)
     } catch {
-      throw Error.eventUpdateFailed(error.localizedDescription)
+      throw CalendarService.Error.eventUpdateFailed(error.localizedDescription)
     }
   }
 
   func deleteEvent(id identifier: String) async throws {
     guard let ekEvent = eventStore.event(withIdentifier: identifier) else {
-      throw Error.eventDeletionFailed("Event not found for identifier: \(identifier)")
+      throw CalendarService.Error.eventDeleteFailed("Event not found for identifier: \(identifier)")
     }
     do {
       try eventStore.remove(ekEvent, span: .thisEvent)
     } catch {
-      throw Error.eventDeletionFailed(error.localizedDescription)
+      throw CalendarService.Error.eventDeleteFailed(error.localizedDescription)
     }
   }
 
@@ -139,16 +139,6 @@ final class CalendarService: CalendarEventService {
       source: calendar.source.title,
       sourceType: calendar.source.sourceType.stringify()
     )
-  }
-
-  enum Error: Swift.Error {
-    case noPermission
-    case validationError(String)
-    case calendarNotFound(String)
-    case ambiguousCalendar(String)
-    case eventCreationFailed(String)
-    case eventUpdateFailed(String)
-    case eventDeletionFailed(String)
   }
 }
 
@@ -175,91 +165,6 @@ struct CalendarReferenceResolver {
     }
 
     return calendar
-  }
-}
-
-struct EventSyncMetadataCodec {
-  private let currentPrefix = "[calmir-sync:v2:"
-  private let legacyPrefix = "[calmir-sync:v1:"
-
-  func encode(_ metadata: EventSyncMetadata) -> String {
-    let occurrence =
-      metadata.sourceOccurrenceDate.map {
-        String($0.timeIntervalSinceReferenceDate.bitPattern, radix: 16)
-      } ?? ""
-    let calendarID = encode(metadata.sourceCalendarID)
-    let eventID = encode(metadata.sourceEventID)
-    return "\(currentPrefix)\(calendarID):\(eventID):\(occurrence)]"
-  }
-
-  func decode(from notes: String?) -> EventSyncMetadata? {
-    guard let notes else { return nil }
-    if notes.hasPrefix(currentPrefix) {
-      return decodeCurrent(from: notes)
-    }
-    if notes.hasPrefix(legacyPrefix) {
-      return decodeLegacy(from: notes)
-    }
-    return nil
-  }
-
-  private func decodeCurrent(from notes: String) -> EventSyncMetadata? {
-    guard let end = notes.firstIndex(of: "]") else {
-      return nil
-    }
-
-    let payloadStart = notes.index(notes.startIndex, offsetBy: currentPrefix.count)
-    let components = notes[payloadStart..<end].split(
-      separator: ":", maxSplits: 2, omittingEmptySubsequences: false
-    )
-    guard components.count == 3,
-      let sourceCalendarID = decode(components[0]),
-      let sourceEventID = decode(components[1])
-    else {
-      return nil
-    }
-
-    let sourceOccurrenceDate: Date?
-    if components[2].isEmpty {
-      sourceOccurrenceDate = nil
-    } else {
-      guard let bitPattern = UInt64(components[2], radix: 16) else { return nil }
-      sourceOccurrenceDate = Date(
-        timeIntervalSinceReferenceDate: Double(bitPattern: bitPattern)
-      )
-    }
-
-    return EventSyncMetadata(
-      sourceCalendarID: sourceCalendarID,
-      sourceEventID: sourceEventID,
-      sourceOccurrenceDate: sourceOccurrenceDate
-    )
-  }
-
-  private func decodeLegacy(from notes: String) -> EventSyncMetadata? {
-    guard let end = notes.firstIndex(of: "]") else { return nil }
-
-    let payloadStart = notes.index(notes.startIndex, offsetBy: legacyPrefix.count)
-    let components = notes[payloadStart..<end].split(
-      separator: ":", maxSplits: 1, omittingEmptySubsequences: false
-    )
-    guard components.count == 2,
-      let sourceCalendarID = decode(components[0]),
-      let sourceEventID = decode(components[1])
-    else {
-      return nil
-    }
-
-    return EventSyncMetadata(sourceCalendarID: sourceCalendarID, sourceEventID: sourceEventID)
-  }
-
-  private func encode(_ value: String) -> String {
-    return Data(value.utf8).base64EncodedString()
-  }
-
-  private func decode(_ value: Substring) -> String? {
-    guard let data = Data(base64Encoded: String(value)) else { return nil }
-    return String(data: data, encoding: .utf8)
   }
 }
 
