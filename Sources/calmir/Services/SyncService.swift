@@ -22,7 +22,7 @@ final class SyncService {
 
     let sourceEvents = try await calendarService.fetchEvents(
       from: sourceCalendar.id, within: interval
-    )
+    ).filter { !$0.ignoresSync }
     let destinationEvents = try await calendarService.fetchEvents(
       from: destinationCalendar.id, within: interval
     )
@@ -44,6 +44,8 @@ final class SyncService {
 
     for event in sourceEvents {
       if let existing = lookup[event.identity] {
+        guard !existing.ignoresSync else { continue }
+
         let needsUpdate =
           existing.title != event.title
           || !datesEqual(existing.startDate, event.startDate)
@@ -65,7 +67,8 @@ final class SyncService {
     }
 
     for event in managedDestinationEvents {
-      guard let metadata = event.syncMetadata,
+      guard !event.ignoresSync,
+        let metadata = event.syncMetadata,
         !sourceEventIdentities.contains(metadata.sourceIdentity)
       else { continue }
 

@@ -195,6 +195,121 @@ func updatesTheTitleOfAnIdentifiedEvent() async throws {
 }
 
 @Test
+func skipsSourceEventsMarkedNoSync() async throws {
+  let syncedEvent = makeEvent(id: "source-1", title: "Standup", startMinute: 10)
+  let privateEvent = makeEvent(
+    id: "source-2", title: "Therapy", startMinute: 20, ignoresSync: true
+  )
+  let calendarService = FakeCalendarEventService(events: [
+    "Source": [syncedEvent, privateEvent],
+    "Destination": [],
+  ])
+
+  let result = try await SyncService(calendarService: calendarService).sync(
+    from: "Source", to: "Destination", within: testInterval
+  )
+
+  #expect(calendarService.created.map(\.event.id) == ["source-1"])
+  #expect(calendarService.updated.isEmpty)
+  #expect(calendarService.deletedIds.isEmpty)
+  #expect(result.createdEvents.map(\.id) == ["source-1"])
+}
+
+@Test
+func removesTheMirrorWhenASourceEventBecomesNoSync() async throws {
+  let privateEvent = makeEvent(
+    id: "source-1", title: "Therapy", startMinute: 10, ignoresSync: true
+  )
+  let staleMirror = makeEvent(
+    id: "destination-1",
+    title: "Therapy",
+    startMinute: 10,
+    syncMetadata: metadata(eventId: "source-1")
+  )
+  let calendarService = FakeCalendarEventService(events: [
+    "Source": [privateEvent],
+    "Destination": [staleMirror],
+  ])
+
+  let result = try await SyncService(calendarService: calendarService).sync(
+    from: "Source", to: "Destination", within: testInterval
+  )
+
+  #expect(calendarService.created.isEmpty)
+  #expect(calendarService.updated.isEmpty)
+  #expect(calendarService.deletedIds == ["destination-1"])
+  #expect(result.deletedEvents.map(\.id) == ["destination-1"])
+}
+
+@Test
+func leavesDestinationEventsMarkedNoSyncUntouched() async throws {
+  let sourceEvent = makeEvent(id: "source-1", title: "New title", startMinute: 10)
+  let pinnedMirror = makeEvent(
+    id: "destination-1",
+    title: "Old title",
+    startMinute: 10,
+    ignoresSync: true,
+    syncMetadata: metadata(eventId: "source-1")
+  )
+  let calendarService = FakeCalendarEventService(events: [
+    "Source": [sourceEvent],
+    "Destination": [pinnedMirror],
+  ])
+
+  let result = try await SyncService(calendarService: calendarService).sync(
+    from: "Source", to: "Destination", within: testInterval
+  )
+
+  #expect(calendarService.created.isEmpty)
+  #expect(calendarService.updated.isEmpty)
+  #expect(calendarService.deletedIds.isEmpty)
+  #expect(result.eventCount == 0)
+}
+
+@Test
+func keepsDeletingOtherMirrorsWhileANoSyncMirrorSurvives() async throws {
+  let pinnedMirror = makeEvent(
+    id: "destination-1",
+    title: "Pinned",
+    startMinute: 10,
+    ignoresSync: true,
+    syncMetadata: metadata(eventId: "source-1")
+  )
+  let staleMirror = makeEvent(
+    id: "destination-2",
+    title: "Stale",
+    startMinute: 20,
+    syncMetadata: metadata(eventId: "source-2")
+  )
+  let calendarService = FakeCalendarEventService(events: [
+    "Source": [],
+    "Destination": [pinnedMirror, staleMirror],
+  ])
+
+  let result = try await SyncService(calendarService: calendarService).sync(
+    from: "Source", to: "Destination", within: testInterval
+  )
+
+  #expect(calendarService.deletedIds == ["destination-2"])
+  #expect(result.deletedEvents.map(\.id) == ["destination-2"])
+}
+
+@Test(arguments: [
+  "nosync",
+  "NoSync",
+  "Team offsite #NOSYNC",
+  "keep this private, nosync please",
+])
+func detectsTheNoSyncMarkerAnywhereInTheDescription(notes: String) {
+  #expect(EventSyncExclusionMarker().isMarked(notes))
+}
+
+@Test(arguments: [nil, "", "Weekly review", "sync with the team", "no sync"])
+func treatsDescriptionsWithoutTheMarkerAsSyncable(notes: String?) {
+  #expect(!EventSyncExclusionMarker().isMarked(notes))
+}
+
+@Test
 func syncMetadataTagRoundTripsArbitraryIdentifiers() {
   let metadata = CalendarEvent.SyncMetadata(
     sourceCalendarId: "Work: EMEA [shared] 🌍",
@@ -272,6 +387,7 @@ private func makeEvent(
   title: String,
   startMinute: Int,
   occurrenceMinute: Int? = nil,
+  ignoresSync: Bool = false,
   syncMetadata: CalendarEvent.SyncMetadata? = nil
 ) -> CalendarEvent {
   let start = testInterval.start.addingTimeInterval(TimeInterval(startMinute * 60))
@@ -284,6 +400,7 @@ private func makeEvent(
     startDate: start,
     endDate: start.addingTimeInterval(30 * 60),
     isAllDay: false,
+    ignoresSync: ignoresSync,
     syncMetadata: syncMetadata
   )
 }
