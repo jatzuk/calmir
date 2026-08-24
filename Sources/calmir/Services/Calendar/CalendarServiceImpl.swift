@@ -4,6 +4,7 @@ import Foundation
 final class CalendarServiceImpl: CalendarService {
   private let eventStore = EKEventStore()
   private let syncMetadataCodec = EventSyncMetadataCodec()
+  private let syncExclusionMarker = EventSyncExclusionMarker()
 
 
   func requestAccess() async throws {
@@ -47,7 +48,7 @@ final class CalendarServiceImpl: CalendarService {
 
     return eventStore.events(matching: predicate)
       .sorted { $0.startDate < $1.startDate }
-      .map { [syncMetadataCodec] event in
+      .map { [syncMetadataCodec, syncExclusionMarker] event in
         CalendarEvent(
           id: event.eventIdentifier,
           occurrenceDate: event.occurrenceDate,
@@ -55,6 +56,7 @@ final class CalendarServiceImpl: CalendarService {
           startDate: event.startDate,
           endDate: event.endDate,
           isAllDay: event.isAllDay,
+          ignoresSync: syncExclusionMarker.isMarked(event.notes),
           syncMetadata: syncMetadataCodec.decode(from: event.notes)
         )
       }

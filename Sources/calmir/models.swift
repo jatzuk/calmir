@@ -14,6 +14,7 @@ struct CalendarEvent {
   let startDate: Date
   let endDate: Date
   let isAllDay: Bool
+  let ignoresSync: Bool
   let syncMetadata: SyncMetadata?
 
   var identity: Identity {
