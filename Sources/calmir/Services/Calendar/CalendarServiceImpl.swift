@@ -51,7 +51,9 @@ final class CalendarServiceImpl: CalendarService {
       .map { [syncMetadataCodec, syncExclusionMarker] event in
         CalendarEvent(
           id: event.eventIdentifier,
-          occurrenceDate: event.occurrenceDate,
+          // EventKit reports the start date as occurrenceDate for non-recurring events,
+          // so keep it only where it's needed to tell recurring occurrences apart
+          occurrenceDate: event.hasRecurrenceRules ? event.occurrenceDate : nil,
           title: event.title ?? "(No title)",
           startDate: event.startDate,
           endDate: event.endDate,
